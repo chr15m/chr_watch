@@ -1,0 +1,13 @@
+.*.swp
+.*.swo
+.lock*
+.waf*
+error.log
+build
+include
+lib
+pebble_app.ld
+resources/wscript
+tools
+waf
+wscript

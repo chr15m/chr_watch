@@ -1,3 +1,8 @@
+chr_watch
+=========
+
+My personal watch app. Customised version of ninety_weather to fetch some info from my server and display it.
+
 ninety_weather
 ==============
 

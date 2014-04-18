@@ -13,18 +13,21 @@
 // This is the Default APP_ID to work with old versions of httpebble
 //#define MY_UUID { 0x91, 0x41, 0xB6, 0x28, 0xBC, 0x89, 0x49, 0x8E, 0xB1, 0x47, 0x04, 0x9F, 0x49, 0xC0, 0x99, 0xAD }
 
-#define MY_UUID { 0x91, 0x41, 0xB6, 0x28, 0xBC, 0x89, 0x49, 0x8E, 0xB1, 0x47, 0x29, 0x08, 0xF1, 0x7C, 0x3F, 0xAC}
+#define MY_UUID { 0x91, 0x41, 0xB6, 0x28, 0xBC, 0x89, 0x49, 0x8E, 0xB1, 0x47, 0x29, 0x08, 0xF1, 0x7C, 0x3F, 0xAD}
 
 PBL_APP_INFO(MY_UUID,
-	     "91 Weather", "rfrcarvalho",
-	     1, 5, /* App major/minor version */
+	     "chr_watch", "chr15m",
+	     1, 6, /* App major/minor version */
 	     RESOURCE_ID_IMAGE_MENU_ICON,
 	     APP_INFO_WATCH_FACE);
 
 Window window;
-TextLayer cwLayer; 					// The calendar week
-TextLayer text_sunrise_layer;
-TextLayer text_sunset_layer;
+//TextLayer cwLayer; 					// The calendar week
+//TextLayer text_sunrise_layer;
+//TextLayer text_sunset_layer;
+TextLayer text_top_layer;
+TextLayer text_bottom_layer;
+TextLayer text_mail_layer;
 TextLayer text_temperature_layer;
 TextLayer DayOfWeekLayer;
 BmpContainer background_image;
@@ -154,7 +157,7 @@ void updateSunsetSunrise()
 {
 	// Calculating Sunrise/sunset with courtesy of Michael Ehrmann
 	// https://github.com/mehrmann/pebble-sunclock
-	static char sunrise_text[] = "00:00";
+	/*static char sunrise_text[] = "00:00";
 	static char sunset_text[]  = "00:00";
 	
 	PblTm pblTime;
@@ -190,12 +193,13 @@ void updateSunsetSunrise()
 	pblTime.tm_min = (int)(60*(sunsetTime-((int)(sunsetTime))));
 	pblTime.tm_hour = (int)sunsetTime;
 	string_format_time(sunset_text, sizeof(sunset_text), time_format, &pblTime);
-	text_layer_set_text(&text_sunset_layer, sunset_text);
+	text_layer_set_text(&text_sunset_layer, sunset_text);*/
 }
 
 unsigned short the_last_hour = 25;
 
 void request_weather();
+void request_server_info();
 
 void display_counters(TextLayer *dataLayer, struct Data d, int infoType) {
 	
@@ -233,6 +237,12 @@ void failed(int32_t cookie, int http_status, void* context) {
 		text_layer_set_text(&text_temperature_layer, "---°");
 	}
 	
+	if (cookie == INFO_HTTP_COOKIE) {
+		text_layer_set_text(&text_top_layer, "");
+		text_layer_set_text(&text_bottom_layer, "");
+		text_layer_set_text(&text_mail_layer, "?");
+	}
+	
 	//link_monitor_handle_failure(http_status);
 	
 	//Re-request the location and subsequently weather on next minute tick
@@ -241,29 +251,41 @@ void failed(int32_t cookie, int http_status, void* context) {
 
 void success(int32_t cookie, int http_status, DictionaryIterator* received, void* context) {
 	
-	if(cookie != WEATHER_HTTP_COOKIE) return;
-	
-	Tuple* icon_tuple = dict_find(received, WEATHER_KEY_ICON);
-	if(icon_tuple) {
-		int icon = icon_tuple->value->int8;
-		if(icon >= 0 && icon < 10) {
-			set_container_image(&weather_images[0], WEATHER_IMAGE_RESOURCE_IDS[icon], GPoint(12, 5));  // ---------- Weather Image
-		} else {
-			set_container_image(&weather_images[0], WEATHER_IMAGE_RESOURCE_IDS[10], GPoint(12, 5));
+	if(cookie == WEATHER_HTTP_COOKIE){
+		Tuple* icon_tuple = dict_find(received, WEATHER_KEY_ICON);
+		if(icon_tuple) {
+			int icon = icon_tuple->value->int8;
+			if(icon >= 0 && icon < 10) {
+				set_container_image(&weather_images[0], WEATHER_IMAGE_RESOURCE_IDS[icon], GPoint(12, 5));  // ---------- Weather Image
+			} else {
+				set_container_image(&weather_images[0], WEATHER_IMAGE_RESOURCE_IDS[10], GPoint(12, 5));
+			}
+		}
+		
+		Tuple* temperature_tuple = dict_find(received, WEATHER_KEY_TEMPERATURE);
+		if(temperature_tuple) {
+			
+			static char temp_text[5];
+			memcpy(temp_text, itoa(temperature_tuple->value->int16), 4);
+			int degree_pos = strlen(temp_text);
+			memcpy(&temp_text[degree_pos], "°", 3);
+			text_layer_set_text(&text_temperature_layer, temp_text);
+			temperature_set = true;
+		}
+	} else if (cookie == INFO_HTTP_COOKIE) {
+		Tuple* top_tuple = dict_find(received, INFO_KEY_TOP);
+		if (top_tuple) {
+			text_layer_set_text(&text_top_layer, top_tuple->value->cstring);
+		}
+		Tuple* bottom_tuple = dict_find(received, INFO_KEY_BOTTOM);
+		if (bottom_tuple) {
+			text_layer_set_text(&text_bottom_layer, bottom_tuple->value->cstring);
+		}
+		Tuple* mail_tuple = dict_find(received, INFO_KEY_MAIL);
+		if (mail_tuple) {
+			text_layer_set_text(&text_mail_layer, mail_tuple->value->cstring);
 		}
 	}
-	
-	Tuple* temperature_tuple = dict_find(received, WEATHER_KEY_TEMPERATURE);
-	if(temperature_tuple) {
-		
-		static char temp_text[5];
-		memcpy(temp_text, itoa(temperature_tuple->value->int16), 4);
-		int degree_pos = strlen(temp_text);
-		memcpy(&temp_text[degree_pos], "°", 3);
-		text_layer_set_text(&text_temperature_layer, temp_text);
-		temperature_set = true;
-	}
-	
 	link_monitor_handle_success(&data);
 	//display_counters(&calls_layer, data, 1);
 	//display_counters(&sms_layer, data, 2);
@@ -280,6 +302,7 @@ void location(float latitude, float longitude, float altitude, float accuracy, v
 void reconnect(void* context) {
 	located = false;
 	request_weather();
+	request_server_info();
 }
 
 bool read_state_data(DictionaryIterator* received, struct Data* d){
@@ -323,6 +346,7 @@ void app_received_msg(DictionaryIterator* received, void* context) {
 		{
 			request_weather();
 		}
+		request_server_info();
 	}
 }
 static void app_send_failed(DictionaryIterator* failed, AppMessageResult reason, void* context) {
@@ -406,9 +430,9 @@ void update_display(PblTm *current_time) {
 	  }
 	  
 	  // -------------------- Calendar week  
-	  static char cw_text[] = "XX00";
-	  string_format_time(cw_text, sizeof(cw_text), TRANSLATION_CW , current_time);
-	  text_layer_set_text(&cwLayer, cw_text); 
+	  //static char cw_text[] = "XX00";
+	  //string_format_time(cw_text, sizeof(cw_text), TRANSLATION_CW , current_time);
+	  //text_layer_set_text(&cwLayer, cw_text); 
 	  // ------------------- Calendar week  
 	  
 	  the_last_hour = display_hour;
@@ -428,15 +452,19 @@ void handle_minute_tick(AppContextRef ctx, PebbleTickEvent *t) {
 		http_location_request();
 	}
 	
+	if(!(t->tick_time->tm_min % 7)) {
+		request_server_info();
+	}
+	
 	// Every 15 minutes, request updated time
 	http_time_request();
 	
-	if(!calculated_sunset_sunrise)
-    {
+	//if(!calculated_sunset_sunrise)
+    //{
 	    // Start with some default values
-	    text_layer_set_text(&text_sunrise_layer, "Wait!");
-	    text_layer_set_text(&text_sunset_layer, "Wait!");
-    }
+	    //text_layer_set_text(&text_sunrise_layer, "Wait!");
+	    //text_layer_set_text(&text_sunset_layer, "Wait!");
+    //}
 	
 	if(!(t->tick_time->tm_min % 2) || data.link_status == LinkStatusUnknown) link_monitor_ping();
 }
@@ -465,29 +493,53 @@ void handle_init(AppContextRef ctx) {
 
 		layer_add_child(&window.layer, &time_format_image.layer.layer);
 	}
+	
+	// top info layer
+	text_layer_init(&text_top_layer, GRect(5, 50, 139 /* width */, 30 /* height */));
+	layer_add_child(&background_image.layer.layer, &text_top_layer.layer);
+	text_layer_set_text_color(&text_top_layer, GColorWhite);
+	text_layer_set_background_color(&text_top_layer, GColorClear);
+	text_layer_set_font(&text_top_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+	text_layer_set_text(&text_top_layer, "");
+	
+	// bottom info layer
+	text_layer_init(&text_bottom_layer, GRect(5, 152, 139 /* width */, 30 /* height */));
+	layer_add_child(&background_image.layer.layer, &text_bottom_layer.layer);
+	text_layer_set_text_color(&text_bottom_layer, GColorWhite);
+	text_layer_set_background_color(&text_bottom_layer, GColorClear);
+	text_layer_set_font(&text_bottom_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+	text_layer_set_text(&text_bottom_layer, "");
 
+	// mail info layer
+	text_layer_init(&text_mail_layer, GRect(75, 135, 139 /* width */, 30 /* height */));
+	layer_add_child(&background_image.layer.layer, &text_mail_layer.layer);
+	text_layer_set_text_color(&text_mail_layer, GColorWhite);
+	text_layer_set_background_color(&text_mail_layer, GColorClear);
+	text_layer_set_font(&text_mail_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+	text_layer_set_text(&text_mail_layer, "?");	
+	
 	// Calendar Week Text
-	text_layer_init(&cwLayer, GRect(108, 50, 80 /* width */, 30 /* height */));
-	layer_add_child(&background_image.layer.layer, &cwLayer.layer);
-	text_layer_set_text_color(&cwLayer, GColorWhite);
-	text_layer_set_background_color(&cwLayer, GColorClear);
-	text_layer_set_font(&cwLayer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+	//text_layer_init(&cwLayer, GRect(108, 50, 80 /* width */, 30 /* height */));
+	//layer_add_child(&background_image.layer.layer, &cwLayer.layer);
+	//text_layer_set_text_color(&cwLayer, GColorWhite);
+	//text_layer_set_background_color(&cwLayer, GColorClear);
+	//text_layer_set_font(&cwLayer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
 
 	// Sunrise Text
-	text_layer_init(&text_sunrise_layer, window.layer.frame);
-	text_layer_set_text_color(&text_sunrise_layer, GColorWhite);
-	text_layer_set_background_color(&text_sunrise_layer, GColorClear);
-	layer_set_frame(&text_sunrise_layer.layer, GRect(7, 152, 100, 30));
-	text_layer_set_font(&text_sunrise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-	layer_add_child(&window.layer, &text_sunrise_layer.layer);
+	//text_layer_init(&text_sunrise_layer, window.layer.frame);
+	//text_layer_set_text_color(&text_sunrise_layer, GColorWhite);
+	//text_layer_set_background_color(&text_sunrise_layer, GColorClear);
+	//layer_set_frame(&text_sunrise_layer.layer, GRect(7, 152, 100, 30));
+	//text_layer_set_font(&text_sunrise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+	//layer_add_child(&window.layer, &text_sunrise_layer.layer);
 
 	// Sunset Text
-	text_layer_init(&text_sunset_layer, window.layer.frame);
-	text_layer_set_text_color(&text_sunset_layer, GColorWhite);
-	text_layer_set_background_color(&text_sunset_layer, GColorClear);
-	layer_set_frame(&text_sunset_layer.layer, GRect(110, 152, 100, 30));
-	text_layer_set_font(&text_sunset_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-	layer_add_child(&window.layer, &text_sunset_layer.layer); 
+	//text_layer_init(&text_sunset_layer, window.layer.frame);
+	//text_layer_set_text_color(&text_sunset_layer, GColorWhite);
+	//text_layer_set_background_color(&text_sunset_layer, GColorClear);
+	//layer_set_frame(&text_sunset_layer.layer, GRect(110, 152, 100, 30));
+	//text_layer_set_font(&text_sunset_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+	//layer_add_child(&window.layer, &text_sunset_layer.layer); 
   
 	// Text for Temperature
 	text_layer_init(&text_temperature_layer, window.layer.frame);
@@ -594,7 +646,7 @@ void request_weather() {
 	
 	// Build the HTTP request
 	DictionaryIterator *body;
-	HTTPResult result = http_out_get("http://www.zone-mr.net/api/weather.php", WEATHER_HTTP_COOKIE, &body);
+	HTTPResult result = http_out_get(URL_WEATHER, WEATHER_HTTP_COOKIE, &body);
 	if(result != HTTP_OK) {
 		return;
 	}
@@ -610,4 +662,28 @@ void request_weather() {
 	
 	// Request updated Time
 	http_time_request();
+}
+
+void request_server_info() {
+	// text_layer_set_text(&text_top_layer, "request initiated");
+	// Build the HTTP request
+	DictionaryIterator *body;
+	HTTPResult result = http_out_get(URL_INFO, INFO_HTTP_COOKIE, &body);
+	if(result != HTTP_OK) {
+		//text_layer_set_text(&text_top_layer, "request failed");
+		return;
+	}
+	
+	//dict_write_int32(body, WEATHER_KEY_LATITUDE, our_latitude);
+	//dict_write_int32(body, WEATHER_KEY_LONGITUDE, our_longitude);
+	//dict_write_cstring(body, WEATHER_KEY_UNIT_SYSTEM, UNIT_SYSTEM);
+	
+	// Send it.
+	if(http_out_send() != HTTP_OK) {
+		//text_layer_set_text(&text_top_layer, "request failed");
+		return;
+	}
+	
+	// Request updated Time
+	http_time_request();	
 }

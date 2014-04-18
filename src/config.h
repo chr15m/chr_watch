@@ -12,7 +12,7 @@
 
 // Any of "us", "ca", "uk" (for idiosyncratic US, Candian and British measurements),
 // "si" (for pure metric) or "auto" (determined by the above latitude/longitude)
-#define UNIT_SYSTEM "auto"
+#define UNIT_SYSTEM "si"
 
 // POST variables
 #define WEATHER_KEY_LATITUDE 1
@@ -22,9 +22,18 @@
 // Received variables
 #define WEATHER_KEY_ICON 1
 #define WEATHER_KEY_TEMPERATURE 2
+#define INFO_KEY_TOP 1
+#define INFO_KEY_BOTTOM 2
+#define INFO_KEY_MAIL 3
+
+// URLs
+#define URL_WEATHER "http://www.zone-mr.net/api/weather.php"
+#define URL_INFO "http://mccormick.cx/pebble"
 
 #define WEATHER_HTTP_COOKIE 1949327671
-#define TIME_HTTP_COOKIE 1131038282
+//#define TIME_HTTP_COOKIE 1131038282
+#define INFO_HTTP_COOKIE 1131038282
+//#define INFO_HTTP_COOKIE 1949327673
 
 // ---- Constants for all available languages ----------------------------------------
 

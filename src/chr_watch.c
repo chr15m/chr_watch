@@ -28,6 +28,7 @@ Window window;
 TextLayer text_top_layer;
 TextLayer text_bottom_layer;
 TextLayer text_mail_layer;
+TextLayer text_updated_layer;
 TextLayer text_temperature_layer;
 TextLayer DayOfWeekLayer;
 BmpContainer background_image;
@@ -40,6 +41,8 @@ static int our_latitude, our_longitude, our_timezone = 99;
 static bool located = false;
 static bool calculated_sunset_sunrise = false;
 static bool temperature_set = false;
+
+static PblTm updated_tm;
 
 GFont font_temperature;        		/* font for Temperature */
 
@@ -118,6 +121,27 @@ unsigned short get_display_hour(unsigned short hour) {
   return display_hour ? display_hour : 12;
 }
 
+// Show the updated info
+void set_updated() {
+    static char updated_hour_text[] = "00";
+    static char updated_minute_text[] = ":00";
+	static char updated_info[] = "      "; 		// @00:00pm
+
+	if (clock_is_24h_style()) {
+		string_format_time(updated_hour_text, sizeof(updated_hour_text), "%H", &updated_tm);
+	}
+	else {
+	    string_format_time(updated_hour_text, sizeof(updated_hour_text), "%I", &updated_tm); 
+	}
+	if (updated_hour_text[0] == '0') memmove(&updated_hour_text[0], &updated_hour_text[1], sizeof(updated_hour_text) - 1);
+   	string_format_time(updated_minute_text, sizeof(updated_minute_text), ":%M", &updated_tm);
+		
+	strcpy(updated_info, "@");
+	strcat(updated_info, updated_hour_text);
+	strcat(updated_info, updated_minute_text);
+	//if (updated_tm.tm_hour < 12) strcat(updated_info, "am"); else strcat(updated_info, "pm");
+	text_layer_set_text(&text_updated_layer, updated_info);
+}
 
 int moon_phase(int y, int m, int d)
 {
@@ -230,6 +254,9 @@ void display_counters(TextLayer *dataLayer, struct Data d, int infoType) {
 	text_layer_set_text(dataLayer, temp_text);
 }
 
+void update_info_text(char* dst, TextLayer *text_layer, char* src) {
+}
+
 void failed(int32_t cookie, int http_status, void* context) {
 	
 	if((cookie == 0 || cookie == WEATHER_HTTP_COOKIE) && !temperature_set) {
@@ -237,11 +264,11 @@ void failed(int32_t cookie, int http_status, void* context) {
 		text_layer_set_text(&text_temperature_layer, "---°");
 	}
 	
-	if (cookie == INFO_HTTP_COOKIE) {
-		text_layer_set_text(&text_top_layer, "");
-		text_layer_set_text(&text_bottom_layer, "");
-		text_layer_set_text(&text_mail_layer, "?");
-	}
+	//if (cookie == INFO_HTTP_COOKIE) {
+	//	text_layer_set_text(&text_top_layer, "");
+	//	text_layer_set_text(&text_bottom_layer, "");
+	//	text_layer_set_text(&text_mail_layer, "?");
+	//}
 	
 	//link_monitor_handle_failure(http_status);
 	
@@ -275,16 +302,24 @@ void success(int32_t cookie, int http_status, DictionaryIterator* received, void
 	} else if (cookie == INFO_HTTP_COOKIE) {
 		Tuple* top_tuple = dict_find(received, INFO_KEY_TOP);
 		if (top_tuple) {
-			text_layer_set_text(&text_top_layer, top_tuple->value->cstring);
+			static char text_top[] = "                    ";
+			strcpy(text_top, top_tuple->value->cstring);
+			text_layer_set_text(&text_top_layer, text_top);
 		}
 		Tuple* bottom_tuple = dict_find(received, INFO_KEY_BOTTOM);
 		if (bottom_tuple) {
-			text_layer_set_text(&text_bottom_layer, bottom_tuple->value->cstring);
+			static char text_bottom[] = "                    ";
+			strcpy(text_bottom, bottom_tuple->value->cstring);
+			text_layer_set_text(&text_bottom_layer, text_bottom);
 		}
 		Tuple* mail_tuple = dict_find(received, INFO_KEY_MAIL);
 		if (mail_tuple) {
-			text_layer_set_text(&text_mail_layer, mail_tuple->value->cstring);
+			static char text_mail[] = "       ";
+			strcpy(text_mail, mail_tuple->value->cstring);
+			text_layer_set_text(&text_mail_layer, text_mail);
 		}
+		get_time(&updated_tm);
+		set_updated(); 	// updated last successful wweather event
 	}
 	link_monitor_handle_success(&data);
 	//display_counters(&calls_layer, data, 1);
@@ -503,7 +538,7 @@ void handle_init(AppContextRef ctx) {
 	text_layer_set_text(&text_top_layer, "");
 	
 	// bottom info layer
-	text_layer_init(&text_bottom_layer, GRect(5, 152, 139 /* width */, 30 /* height */));
+	text_layer_init(&text_bottom_layer, GRect(0, 152, 144 /* width */, 30 /* height */));
 	layer_add_child(&background_image.layer.layer, &text_bottom_layer.layer);
 	text_layer_set_text_color(&text_bottom_layer, GColorWhite);
 	text_layer_set_background_color(&text_bottom_layer, GColorClear);
@@ -517,6 +552,14 @@ void handle_init(AppContextRef ctx) {
 	text_layer_set_background_color(&text_mail_layer, GColorClear);
 	text_layer_set_font(&text_mail_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
 	text_layer_set_text(&text_mail_layer, "?");	
+
+	// updated info layer
+	text_layer_init(&text_updated_layer, GRect(102, 152, 80 /* width */, 30 /* height */));
+	layer_add_child(&background_image.layer.layer, &text_updated_layer.layer);
+	text_layer_set_text_color(&text_updated_layer, GColorWhite);
+	text_layer_set_background_color(&text_updated_layer, GColorClear);
+	text_layer_set_font(&text_updated_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+	text_layer_set_text(&text_updated_layer, "");
 	
 	// Calendar Week Text
 	//text_layer_init(&cwLayer, GRect(108, 50, 80 /* width */, 30 /* height */));

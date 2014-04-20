@@ -10,4 +10,8 @@ function get_mailbox_counts() {
 	return $m . " " . $c;
 }
 
-?>{"1":"","2":"<?=get_btc_price();?>","3":"<?=get_mailbox_counts();?>"}
+function get_top_line() {
+	return file_get_contents("top.txt");
+}
+
+?>{"1":"<?=get_top_line()?>","2":"<?=get_btc_price();?>","3":"<?=get_mailbox_counts();?>"}

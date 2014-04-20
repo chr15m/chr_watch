@@ -133,7 +133,7 @@ void set_updated() {
 	else {
 	    string_format_time(updated_hour_text, sizeof(updated_hour_text), "%I", &updated_tm); 
 	}
-	if (updated_hour_text[0] == '0') memmove(&updated_hour_text[0], &updated_hour_text[1], sizeof(updated_hour_text) - 1);
+	if (clock_is_24h_style() && updated_hour_text[0] == '0') memmove(&updated_hour_text[0], &updated_hour_text[1], sizeof(updated_hour_text) - 1);
    	string_format_time(updated_minute_text, sizeof(updated_minute_text), ":%M", &updated_tm);
 		
 	strcpy(updated_info, "@");

@@ -1,0 +1,4 @@
+<Files "mailboxes.conf">
+Order Allow,Deny
+Deny from all
+</Files>

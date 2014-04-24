@@ -28,7 +28,7 @@
 
 // URLs
 #define URL_WEATHER "http://www.zone-mr.net/api/weather.php"
-#define URL_INFO "http://mccormick.cx/pebble"
+#define URL_INFO "http://mccormick.cx/pebble/"
 
 #define WEATHER_HTTP_COOKIE 1949327671
 //#define TIME_HTTP_COOKIE 1131038282

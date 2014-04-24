@@ -11,3 +11,7 @@ resources/wscript
 tools
 waf
 wscript
+mailboxes.conf
+server/top.txt
+server/bottom.txt
+server/mail.txt

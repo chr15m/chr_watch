@@ -16,7 +16,11 @@ function mail_count($host, $username, $password) {
 	$mbox = imap_open($host, $username, $password);
 	if ($mbox) {
 		$result = imap_search($mbox, 'UNSEEN');
-		return count($result);
+		if ($result) {
+			return count($result);
+		} else {
+			return 0;
+		}
 	}
 }
 

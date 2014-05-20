@@ -122,10 +122,12 @@ unsigned short get_display_hour(unsigned short hour) {
 }
 
 // Show the updated info
-void set_updated() {
-    static char updated_hour_text[] = "00";
-    static char updated_minute_text[] = ":00";
+void set_updated(PblTm *current_time) {
 	static char updated_info[] = "      "; 		// @00:00pm
+	PblTm now_time;
+	get_time(&now_time);
+	/*static char updated_hour_text[] = "00";
+	static char updated_minute_text[] = ":00";
 
 	if (clock_is_24h_style()) {
 		string_format_time(updated_hour_text, sizeof(updated_hour_text), "%H", &updated_tm);
@@ -139,7 +141,12 @@ void set_updated() {
 	strcpy(updated_info, "@");
 	strcat(updated_info, updated_hour_text);
 	strcat(updated_info, updated_minute_text);
-	//if (updated_tm.tm_hour < 12) strcat(updated_info, "am"); else strcat(updated_info, "pm");
+	//if (updated_tm.tm_hour < 12) strcat(updated_info, "am"); else strcat(updated_info, "pm");*/
+	if ((now_time.tm_year - updated_tm.tm_year) * 365 * 24 * 60 * 60 + ((now_time.tm_yday - updated_tm.tm_yday) * 24 * 60 * 60 + (now_time.tm_hour - updated_tm.tm_hour) * 60 * 60 + (now_time.tm_min - updated_tm.tm_min) * 60 + (now_time.tm_sec - updated_tm.tm_sec) < (10 * 60))) {
+		strcpy(updated_info, "    :)");
+	} else {
+		strcpy(updated_info, "      ");
+	}
 	text_layer_set_text(&text_updated_layer, updated_info);
 }
 
@@ -254,6 +261,16 @@ void display_counters(TextLayer *dataLayer, struct Data d, int infoType) {
 	text_layer_set_text(dataLayer, temp_text);
 }
 
+void update_smiley(struct Data d) {
+	static char updated_info[] = "      "; 		// @00:00pm
+	if (d.link_status != LinkStatusOK) {
+		strcpy(updated_info, "      ");
+	} else {
+		strcpy(updated_info, "    :)");
+	}
+	text_layer_set_text(&text_updated_layer, updated_info);
+}
+
 void update_info_text(char* dst, TextLayer *text_layer, char* src) {
 }
 
@@ -261,7 +278,7 @@ void failed(int32_t cookie, int http_status, void* context) {
 	
 	if((cookie == 0 || cookie == WEATHER_HTTP_COOKIE) && !temperature_set) {
 		set_container_image(&weather_images[0], WEATHER_IMAGE_RESOURCE_IDS[10], GPoint(12, 5));
-		text_layer_set_text(&text_temperature_layer, "---°");
+		text_layer_set_text(&text_temperature_layer, "");
 	}
 	
 	//if (cookie == INFO_HTTP_COOKIE) {
@@ -319,9 +336,9 @@ void success(int32_t cookie, int http_status, DictionaryIterator* received, void
 			text_layer_set_text(&text_mail_layer, text_mail);
 		}
 		get_time(&updated_tm);
-		set_updated(); 	// updated last successful wweather event
 	}
 	link_monitor_handle_success(&data);
+	update_smiley(data);
 	//display_counters(&calls_layer, data, 1);
 	//display_counters(&sms_layer, data, 2);
 }
@@ -375,6 +392,7 @@ void app_received_msg(DictionaryIterator* received, void* context) {
 	link_monitor_handle_success(&data);
 	if(read_state_data(received, &data)) 
 	{
+		update_smiley(data);
 		//display_counters(&calls_layer, data, 1);
 		//display_counters(&sms_layer, data, 2);
 		if(!located)
@@ -386,6 +404,7 @@ void app_received_msg(DictionaryIterator* received, void* context) {
 }
 static void app_send_failed(DictionaryIterator* failed, AppMessageResult reason, void* context) {
 	link_monitor_handle_failure(reason, &data);
+	update_smiley(data);
 	//display_counters(&calls_layer, data, 1);
 	//display_counters(&sms_layer, data, 2);
 }
@@ -473,13 +492,14 @@ void update_display(PblTm *current_time) {
 	  the_last_hour = display_hour;
   }
 	
+	//set_updated(current_time); 	// last HTTP update was recent?
 }
 
 
 void handle_minute_tick(AppContextRef ctx, PebbleTickEvent *t) {
-  (void)ctx;	
+	(void)ctx;	
 
-    update_display(t->tick_time);
+	update_display(t->tick_time);
 	
 	if(!located || !(t->tick_time->tm_min % 15))
 	{
@@ -495,13 +515,13 @@ void handle_minute_tick(AppContextRef ctx, PebbleTickEvent *t) {
 	http_time_request();
 	
 	//if(!calculated_sunset_sunrise)
-    //{
-	    // Start with some default values
-	    //text_layer_set_text(&text_sunrise_layer, "Wait!");
-	    //text_layer_set_text(&text_sunset_layer, "Wait!");
-    //}
+	//{
+		// Start with some default values
+		//text_layer_set_text(&text_sunrise_layer, "Wait!");
+		//text_layer_set_text(&text_sunset_layer, "Wait!");
+	//}
 	
-	if(!(t->tick_time->tm_min % 2) || data.link_status == LinkStatusUnknown) link_monitor_ping();
+	if (!(t->tick_time->tm_min % 2) || data.link_status == LinkStatusUnknown) link_monitor_ping();
 }
 
 void handle_init(AppContextRef ctx) {
@@ -554,7 +574,7 @@ void handle_init(AppContextRef ctx) {
 	text_layer_set_text(&text_mail_layer, "?");	
 
 	// updated info layer
-	text_layer_init(&text_updated_layer, GRect(102, 152, 80 /* width */, 30 /* height */));
+	text_layer_init(&text_updated_layer, GRect(118, 152, 80 /* width */, 30 /* height */));
 	layer_add_child(&background_image.layer.layer, &text_updated_layer.layer);
 	text_layer_set_text_color(&text_updated_layer, GColorWhite);
 	text_layer_set_background_color(&text_updated_layer, GColorClear);
